@@ -1,1 +1,7 @@
-SonarQube: Integrated into CI pipeline, scans YAML files, shell scripts, Rego policies, generates reports for bugs/vulnerabilities/code-smells/duplicates, quality gate enforcement
+SonarQube integration
+- sonar-project.properties configured
+- Scans: YAML files, shell scripts, Rego policies
+- Reports: bugs, vulnerabilities, code smells, duplicates
+- Quality gate: pipeline fails if thresholds breached
+- Reports saved to reports/sonarqube/
+File: sonar-project.properties, ci.yml (sonarqube job)
