@@ -1,19 +1,8 @@
-Linux setup commit
-===================
-Tasks completed:
-- Created project directory: company-devops-platform
-- Created subdirectories: configs/, deployments/, policies/, reports/, artifacts/, backups/
+Linux setup
+- Created project directory and subdirectories
 - Created users: developer, tester, devopsadmin
 - Created groups: developers, operations
-- Added developer + tester to developers group
-- Added devopsadmin to operations group
-- Assigned read/write to developers group
-- Assigned full sudo/admin to devopsadmin
-- Created config files: deployment.yaml, pipeline.yaml, security.conf
-- Backed up configs with timestamps (YYYYMMDD_HHMMSS.bak)
-- Displayed project structure via tree/find
-- Created background process (sleep 300) and terminated it
-- Displayed running processes with parent-child (ps -f --forest)
-- Created compressed archive of entire project
-
+- Assigned permissions
+- Created config files with timestamped backups
+- Background process and archive
 Script: scripts/linux_setup.sh
