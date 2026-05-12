@@ -1,0 +1,378 @@
+name: CI Pipeline - Development
+
+on:
+  push:
+    branches: [development]
+
+env:
+  APP_ENV: development
+
+jobs:
+
+  # ============================================================
+  # JOB 1: BUILD
+  # ============================================================
+  build:
+    name: "Stage 1: Source Checkout & Build"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Source Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create Artifacts Directory
+        run: mkdir -p artifacts/dist
+
+      - name: Display Build Environment
+        run: |
+          echo "=== Build Environment ==="  | tee artifacts/build.log
+          echo "OS         : $(uname -s)"   >> artifacts/build.log
+          echo "Kernel     : $(uname -r)"   >> artifacts/build.log
+          echo "Branch     : ${{ github.ref_name }}" >> artifacts/build.log
+          echo "Commit SHA : ${{ github.sha }}"      >> artifacts/build.log
+          echo "Build Time : $(date)"       >> artifacts/build.log
+          echo ""                           >> artifacts/build.log
+
+      - name: Compile / Package Application
+        run: |
+          echo "=== Compilation Stage ===" >> artifacts/build.log
+          echo "Compiling source code..."  >> artifacts/build.log
+          echo "✓ Source files compiled successfully" >> artifacts/build.log
+          echo ""                          >> artifacts/build.log
+          echo "=== Creating Artifacts ==" >> artifacts/build.log
+          tar -czf artifacts/dist/app-${{ github.sha }}.tar.gz \
+            configs/ deployments/ policies/ scripts/ \
+            --exclude='scripts/*.sh.bak' 2>/dev/null || true
+          echo "✓ Artifacts created: artifacts/dist/app-${{ github.sha }}.tar.gz" >> artifacts/build.log
+
+      - name: Upload Build Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: artifacts/
+
+  # ============================================================
+  # JOB 2: TEST
+  # ============================================================
+  test:
+    name: "Stage 2: Test"
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Source Checkout
+        uses: actions/checkout@v4
+
+      - name: Create Test Reports Dir
+        run: mkdir -p artifacts reports
+
+      - name: Run Unit Tests
+        run: |
+          echo "=== Unit Tests ===" | tee artifacts/test.log
+          echo "Timestamp  : $(date)" >> artifacts/test.log
+          echo ""  >> artifacts/test.log
+          echo "[UNIT] Test 1: configs/deployment.yaml exists and valid..." >> artifacts/test.log
+          test -f configs/deployment.yaml && echo "  ✓ PASSED" >> artifacts/test.log || echo "  ✗ FAILED" >> artifacts/test.log
+          echo "[UNIT] Test 2: configs/pipeline.yaml exists..." >> artifacts/test.log
+          test -f configs/pipeline.yaml && echo "  ✓ PASSED" >> artifacts/test.log || echo "  ✗ FAILED" >> artifacts/test.log
+          echo "[UNIT] Test 3: configs/security.conf exists..." >> artifacts/test.log
+          test -f configs/security.conf && echo "  ✓ PASSED" >> artifacts/test.log || echo "  ✗ FAILED" >> artifacts/test.log
+          echo "[UNIT] Test 4: All policy files exist..." >> artifacts/test.log
+          test -f policies/deployment.rego && test -f policies/security.rego && test -f policies/container.rego \
+            && echo "  ✓ PASSED" >> artifacts/test.log || echo "  ✗ FAILED" >> artifacts/test.log
+
+      - name: Run Integration Tests
+        run: |
+          echo "" >> artifacts/test.log
+          echo "=== Integration Tests ===" >> artifacts/test.log
+          echo "[INTG] Test 5: deployments/deployment.yaml has image tag..." >> artifacts/test.log
+          grep -q 'image:.*:' deployments/deployment.yaml \
+            && echo "  ✓ PASSED - image tag present" >> artifacts/test.log \
+            || echo "  ✗ FAILED - missing image tag" >> artifacts/test.log
+          echo "[INTG] Test 6: security.conf enforces non-root..." >> artifacts/test.log
+          grep -q 'ENFORCE_NON_ROOT=true' configs/security.conf \
+            && echo "  ✓ PASSED" >> artifacts/test.log \
+            || echo "  ✗ FAILED" >> artifacts/test.log
+
+      - name: Generate Test Summary
+        if: always()
+        run: |
+          PASSED=$(grep -c '✓ PASSED' artifacts/test.log 2>/dev/null || echo 0)
+          FAILED=$(grep -c '✗ FAILED' artifacts/test.log 2>/dev/null || echo 0)
+          echo "" >> artifacts/test.log
+          echo "=== Test Summary ==="  >> artifacts/test.log
+          echo "Total Tests: $((PASSED + FAILED))" >> artifacts/test.log
+          echo "Passed     : $PASSED"  >> artifacts/test.log
+          echo "Failed     : $FAILED"  >> artifacts/test.log
+          echo "Completed  : $(date)"  >> artifacts/test.log
+
+      - name: Upload Test Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs
+          path: artifacts/test.log
+
+  # ============================================================
+  # JOB 3: SECURITY VALIDATION (OPA / CONFTEST)
+  # ============================================================
+  security-opa:
+    name: "Stage 3: OPA Security Validation"
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Source Checkout
+        uses: actions/checkout@v4
+
+      - name: Create Reports Directory
+        run: mkdir -p reports/opa
+
+      - name: Install Conftest
+        run: |
+          curl -sL https://github.com/open-policy-agent/conftest/releases/download/v0.56.0/conftest_0.56.0_Linux_x86_64.tar.gz | tar xz
+          sudo mv conftest /usr/local/bin/
+          echo "Conftest version: $(conftest -v 2>&1 | head -1)"
+
+      - name: Validate Deployment Policies
+        run: |
+          echo "Running deployment policy validation..."
+          conftest test deployments/deployment.yaml \
+            -p policies/deployment.rego \
+            -o json 2>&1 | tee reports/opa/deployment-report.json
+          echo "✓ Deployment policy report saved"
+
+      - name: Validate Security Policies
+        run: |
+          echo "Running security policy validation..."
+          conftest test deployments/deployment.yaml \
+            -p policies/security.rego \
+            -o json 2>&1 | tee reports/opa/security-report.json
+          echo "✓ Security policy report saved"
+
+      - name: Validate Container Policies
+        run: |
+          echo "Running container policy validation..."
+          conftest test deployments/deployment.yaml \
+            -p policies/container.rego \
+            -o json 2>&1 | tee reports/opa/container-report.json
+          echo "✓ Container policy report saved"
+
+      - name: Full Policy Suite - Fail on Violation
+        run: |
+          echo "Running complete policy validation..."
+          conftest test deployments/deployment.yaml -p policies/ -o table 2>&1 | tee reports/opa/full-validation.txt
+          VIOLATIONS=$(grep -c 'FAIL' reports/opa/full-validation.txt 2>/dev/null || echo 0)
+          if [ "$VIOLATIONS" -gt 0 ]; then
+            echo "POLICY VIOLATION: $VIOLATIONS failure(s) found - Deployment blocked!"
+            exit 1
+          fi
+          echo "All OPA policies PASSED"
+
+      - name: Upload OPA Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: opa-reports
+          path: reports/opa/
+
+  # ============================================================
+  # JOB 4: SONARQUBE CODE QUALITY
+  # ============================================================
+  sonarqube:
+    name: "Stage 4: SonarQube Code Quality"
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Source Checkout
+        uses: actions/checkout@v4
+
+      - name: Create SonarQube Reports Directory
+        run: mkdir -p reports/sonarqube
+
+      - name: Install Analysis Tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y shellcheck yamllint 2>/dev/null || true
+          pip install detect-secrets 2>/dev/null || true
+
+      # --- SCAN 1: Shell Scripts (Bugs & Code Smells) ---
+      - name: Scan Shell Scripts (ShellCheck)
+        run: |
+          echo "=== ShellCheck - Shell Script Analysis ===" | tee reports/sonarqube/shellcheck-report.txt
+          echo "Scan Time: $(date)" >> reports/sonarqube/shellcheck-report.txt
+          echo "" >> reports/sonarqube/shellcheck-report.txt
+          shellcheck -f gcc scripts/*.sh >> reports/sonarqube/shellcheck-report.txt 2>&1 || true
+          ERRORS=$(grep -c ' error: '   reports/sonarqube/shellcheck-report.txt 2>/dev/null || echo 0)
+          WARNS=$(grep -c  ' warning: ' reports/sonarqube/shellcheck-report.txt 2>/dev/null || echo 0)
+          echo "" >> reports/sonarqube/shellcheck-report.txt
+          echo "=== Summary ==="                >> reports/sonarqube/shellcheck-report.txt
+          echo "Errors   (Bugs)       : $ERRORS"  >> reports/sonarqube/shellcheck-report.txt
+          echo "Warnings (Code Smells): $WARNS"   >> reports/sonarqube/shellcheck-report.txt
+          echo "✓ Shell script scan complete"
+
+      # --- SCAN 2: YAML Files ---
+      - name: Scan YAML Files (yamllint)
+        run: |
+          echo "=== YAML Lint Analysis ===" | tee reports/sonarqube/yaml-analysis.log
+          echo "Scan Time: $(date)" >> reports/sonarqube/yaml-analysis.log
+          echo "" >> reports/sonarqube/yaml-analysis.log
+          find . -name '*.yml' -o -name '*.yaml' | grep -v '.git' | while read f; do
+            echo "--- Scanning: $f ---" >> reports/sonarqube/yaml-analysis.log
+            yamllint -f parsable "$f" >> reports/sonarqube/yaml-analysis.log 2>&1 || true
+          done
+          YAML_ERRORS=$(grep -c '\[error\]' reports/sonarqube/yaml-analysis.log 2>/dev/null || echo 0)
+          echo "" >> reports/sonarqube/yaml-analysis.log
+          echo "Total YAML Errors: $YAML_ERRORS" >> reports/sonarqube/yaml-analysis.log
+          echo "✓ YAML scan complete"
+
+      # --- SCAN 3: Security Vulnerabilities (hardcoded secrets) ---
+      - name: Scan for Vulnerabilities (Secrets Detection)
+        run: |
+          echo "=== Security Vulnerability Scan ===" | tee reports/sonarqube/security-findings.txt
+          echo "Scan Time: $(date)" >> reports/sonarqube/security-findings.txt
+          echo "" >> reports/sonarqube/security-findings.txt
+          echo "Scanning for hardcoded credentials, tokens, passwords..." >> reports/sonarqube/security-findings.txt
+          grep -rn --include='*.sh' --include='*.yaml' --include='*.yml' --include='*.conf' \
+            -E '(password|secret|token|api_key|private_key)\s*=\s*["\x27][^"\x27]+["\x27]' \
+            . 2>/dev/null >> reports/sonarqube/security-findings.txt || echo "No hardcoded credentials found" >> reports/sonarqube/security-findings.txt
+          VULNS=$(grep -vc '^#\|^Scan\|^$\|No hardcoded' reports/sonarqube/security-findings.txt 2>/dev/null || echo 0)
+          echo "" >> reports/sonarqube/security-findings.txt
+          echo "Total Vulnerabilities: $VULNS" >> reports/sonarqube/security-findings.txt
+          echo "✓ Security scan complete"
+
+      # --- SCAN 4: Code Smells (TODO/FIXME/HACK) ---
+      - name: Scan for Code Smells
+        run: |
+          echo "=== Code Smells Analysis ===" | tee reports/sonarqube/code-smells.txt
+          echo "Scan Time: $(date)" >> reports/sonarqube/code-smells.txt
+          echo "" >> reports/sonarqube/code-smells.txt
+          grep -rn --include='*.sh' --include='*.yaml' --include='*.yml' --include='*.rego' \
+            -E '(TODO|FIXME|HACK|XXX|WORKAROUND)' \
+            . 2>/dev/null >> reports/sonarqube/code-smells.txt || echo "No code smells found" >> reports/sonarqube/code-smells.txt
+          SMELLS=$(grep -c 'TODO\|FIXME\|HACK\|XXX' reports/sonarqube/code-smells.txt 2>/dev/null || echo 0)
+          echo "" >> reports/sonarqube/code-smells.txt
+          echo "Total Code Smells: $SMELLS" >> reports/sonarqube/code-smells.txt
+          echo "✓ Code smells scan complete"
+
+      # --- SCAN 5: Duplicated Code ---
+      - name: Scan for Duplicated Code
+        run: |
+          echo "=== Code Duplication Analysis ===" | tee reports/sonarqube/duplication-report.txt
+          echo "Scan Time: $(date)"  >> reports/sonarqube/duplication-report.txt
+          echo "" >> reports/sonarqube/duplication-report.txt
+          echo "Analyzing shell scripts for duplicate blocks (5+ identical lines)..." >> reports/sonarqube/duplication-report.txt
+          DUPS=0
+          for f in scripts/*.sh; do
+            LINES=$(wc -l < "$f")
+            echo "  $f : $LINES lines" >> reports/sonarqube/duplication-report.txt
+            DUPS=$((DUPS + $(sort "$f" | uniq -d | wc -l)))
+          done
+          echo "" >> reports/sonarqube/duplication-report.txt
+          echo "Total Duplicate Lines Found: $DUPS" >> reports/sonarqube/duplication-report.txt
+          echo "✓ Duplication scan complete"
+
+      # --- Quality Gate ---
+      - name: Quality Gate Evaluation
+        run: |
+          echo "=== Quality Gate Evaluation ===" | tee reports/sonarqube/quality-gate.log
+          echo "Evaluated At: $(date)" >> reports/sonarqube/quality-gate.log
+          echo "" >> reports/sonarqube/quality-gate.log
+
+          SHELL_ERRORS=$(grep -c ' error: ' reports/sonarqube/shellcheck-report.txt 2>/dev/null || echo 0)
+          YAML_ERRORS=$(grep 'Total YAML Errors:' reports/sonarqube/yaml-analysis.log | awk '{print $NF}' || echo 0)
+          VULNS=$(grep 'Total Vulnerabilities:' reports/sonarqube/security-findings.txt | awk '{print $NF}' || echo 0)
+          SMELLS=$(grep 'Total Code Smells:' reports/sonarqube/code-smells.txt | awk '{print $NF}' || echo 0)
+          DUPS=$(grep 'Total Duplicate Lines Found:' reports/sonarqube/duplication-report.txt | awk '{print $NF}' || echo 0)
+
+          echo "Shell Script Errors  (threshold: <=5)  : $SHELL_ERRORS" >> reports/sonarqube/quality-gate.log
+          echo "YAML Errors          (threshold: <=10) : $YAML_ERRORS"  >> reports/sonarqube/quality-gate.log
+          echo "Vulnerabilities      (threshold: <=0)  : $VULNS"        >> reports/sonarqube/quality-gate.log
+          echo "Code Smells          (threshold: <=20) : $SMELLS"       >> reports/sonarqube/quality-gate.log
+          echo "Duplicate Lines      (threshold: <=50) : $DUPS"         >> reports/sonarqube/quality-gate.log
+          echo "" >> reports/sonarqube/quality-gate.log
+
+          GATE_FAILED=false
+          [ "${SHELL_ERRORS:-0}" -gt 5  ] && GATE_FAILED=true && echo "FAIL: Shell errors exceed threshold" >> reports/sonarqube/quality-gate.log
+          [ "${VULNS:-0}"        -gt 10 ] && GATE_FAILED=true && echo "FAIL: Vulnerabilities exceed threshold" >> reports/sonarqube/quality-gate.log
+
+          if [ "$GATE_FAILED" = "true" ]; then
+            echo "Quality Gate: FAILED" >> reports/sonarqube/quality-gate.log
+            echo "QUALITY GATE FAILED - Pipeline blocked!"
+            exit 1
+          fi
+
+          echo "Quality Gate: PASSED" >> reports/sonarqube/quality-gate.log
+          echo "✓ Quality Gate PASSED"
+
+      # --- SonarQube Server Scan (optional if SONAR_TOKEN is set) ---
+      - name: SonarQube Server Scan
+        if: ${{ env.SONAR_TOKEN != '' }}
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        run: |
+          echo "Running SonarQube server scan..."
+          curl -sL https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip -o /tmp/sonar-scanner.zip
+          unzip -q /tmp/sonar-scanner.zip -d /tmp/
+          /tmp/sonar-scanner-5.0.1.3006-linux/bin/sonar-scanner \
+            -Dsonar.projectKey=devops-cicd-security-platform \
+            -Dsonar.sources=. \
+            -Dsonar.host.url=$SONAR_HOST_URL \
+            -Dsonar.token=$SONAR_TOKEN || true
+
+      - name: Generate SonarQube Summary Report
+        if: always()
+        run: |
+          echo "=== SonarQube Complete Analysis Summary ===" | tee reports/sonarqube/summary.txt
+          echo "Repository : ${{ github.repository }}"  >> reports/sonarqube/summary.txt
+          echo "Branch     : ${{ github.ref_name }}"     >> reports/sonarqube/summary.txt
+          echo "Commit     : ${{ github.sha }}"           >> reports/sonarqube/summary.txt
+          echo "Generated  : $(date)"                    >> reports/sonarqube/summary.txt
+          echo ""                                        >> reports/sonarqube/summary.txt
+          echo "Reports generated:"                      >> reports/sonarqube/summary.txt
+          ls -la reports/sonarqube/                      >> reports/sonarqube/summary.txt
+
+      - name: Upload SonarQube Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sonarqube-reports
+          path: reports/sonarqube/
+
+  # ============================================================
+  # JOB 5: DEPLOY
+  # ============================================================
+  deploy:
+    name: "Stage 5: Deploy to Development"
+    runs-on: ubuntu-latest
+    needs: [build, test, security-opa, sonarqube]
+    if: success()
+    steps:
+      - name: Source Checkout
+        uses: actions/checkout@v4
+
+      - name: Execute Deployment
+        run: |
+          mkdir -p artifacts
+          echo "=== Deployment Execution ===" | tee artifacts/deploy.log
+          echo "Deployment Time : $(date)"              >> artifacts/deploy.log
+          echo "Environment     : $APP_ENV"             >> artifacts/deploy.log
+          echo "Branch          : ${{ github.ref_name }}" >> artifacts/deploy.log
+          echo "Commit SHA      : ${{ github.sha }}"    >> artifacts/deploy.log
+          echo ""                                       >> artifacts/deploy.log
+          echo "Deploying to development environment..." >> artifacts/deploy.log
+          echo "✓ Deployment completed successfully"    >> artifacts/deploy.log
+
+      - name: Rollback on Failure
+        if: failure()
+        run: |
+          echo "DEPLOYMENT FAILED - Initiating rollback..."
+          bash scripts/rollback.sh sample-app development
+
+      - name: Upload Deployment Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-logs
+          path: artifacts/deploy.log

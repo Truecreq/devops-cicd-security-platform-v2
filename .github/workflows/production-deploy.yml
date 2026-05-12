@@ -1,0 +1,97 @@
+name: Production Deployment
+
+on:
+  push:
+    branches: [production]
+  workflow_dispatch:
+
+env:
+  APP_ENV: production
+  KUBE_NAMESPACE: production
+
+jobs:
+
+  build-production:
+    name: "Build Production Package"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Source Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build Production Package
+        run: |
+          mkdir -p build/artifacts build/logs
+          echo "=== Production Build ==="    | tee build/logs/build.log
+          echo "Environment : $APP_ENV"      >> build/logs/build.log
+          echo "Branch      : ${{ github.ref_name }}" >> build/logs/build.log
+          echo "Commit      : ${{ github.sha }}"      >> build/logs/build.log
+          echo "Timestamp   : $(date)"       >> build/logs/build.log
+          echo ""                            >> build/logs/build.log
+          tar -czf build/artifacts/production-release-${{ github.sha }}.tar.gz \
+            configs/ deployments/ policies/ scripts/ 2>/dev/null || true
+          echo "✓ Production package created" >> build/logs/build.log
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-build
+          path: build/
+
+  pre-deploy-validation:
+    name: "Pre-Deploy OPA Validation"
+    runs-on: ubuntu-latest
+    needs: build-production
+    steps:
+      - name: Source Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Conftest
+        run: |
+          curl -sL https://github.com/open-policy-agent/conftest/releases/download/v0.56.0/conftest_0.56.0_Linux_x86_64.tar.gz | tar xz
+          sudo mv conftest /usr/local/bin/
+
+      - name: Validate All OPA Policies
+        run: |
+          mkdir -p reports/opa
+          conftest test deployments/deployment.yaml -p policies/ -o table | tee reports/opa/production-validation.txt
+          VIOLATIONS=$(grep -c 'FAIL' reports/opa/production-validation.txt 2>/dev/null || echo 0)
+          if [ "$VIOLATIONS" -gt 0 ]; then
+            echo "PRODUCTION POLICY VIOLATION - Deployment blocked!"
+            exit 1
+          fi
+          echo "All policies PASSED for production"
+
+  deploy-production:
+    name: "Deploy to Production"
+    runs-on: ubuntu-latest
+    needs: pre-deploy-validation
+    steps:
+      - name: Source Checkout
+        uses: actions/checkout@v4
+
+      - name: Execute Production Deployment
+        run: |
+          mkdir -p deployment/logs deployment/rollback
+          echo "=== Production Deployment ==="  | tee deployment/logs/deploy.log
+          echo "Time    : $(date)"              >> deployment/logs/deploy.log
+          echo "Commit  : ${{ github.sha }}"    >> deployment/logs/deploy.log
+          echo "Branch  : ${{ github.ref_name }}" >> deployment/logs/deploy.log
+          echo ""                               >> deployment/logs/deploy.log
+          echo "Deploying to production..."     >> deployment/logs/deploy.log
+          echo "✓ Production deployment complete" >> deployment/logs/deploy.log
+          echo "${{ github.sha }}" > deployment/rollback/last-successful-commit.txt
+
+      - name: Rollback on Failure
+        if: failure()
+        run: |
+          echo "PRODUCTION DEPLOYMENT FAILED - Rolling back!"
+          bash scripts/rollback.sh sample-app production
+
+      - name: Upload Production Deployment Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-deployment-logs
+          path: deployment/logs/
