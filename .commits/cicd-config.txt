@@ -1,1 +1,26 @@
-CI/CD: GitHub Actions workflows for development and production pipelines with 5 stages: checkout, build, test, security validation, deployment
+CI/CD configuration commit
+===========================
+Tasks completed:
+- Created CI/CD pipeline using GitHub Actions
+- Development pipeline: .github/workflows/ci.yml
+  * Stage 1: Source Checkout (actions/checkout@v4)
+  * Stage 2: Build (compile, package, create artifacts)
+  * Stage 3: Test (unit tests + integration tests)
+  * Stage 4: Security Validation (OPA/Conftest)
+  * Stage 5: SonarQube Code Quality
+  * Stage 6: Deploy to development environment
+- Production pipeline: .github/workflows/production-deploy.yml
+  * Build production package
+  * Pre-deploy OPA validation
+  * Deploy to production
+  * Automatic rollback on failure
+- Auto-trigger on push to development branch
+- Environment variables: APP_ENV, KUBE_NAMESPACE
+- Secrets: SONAR_TOKEN, SONAR_HOST_URL
+- Build logs: artifacts/build.log
+- Test logs: artifacts/test.log
+- Deploy logs: artifacts/deploy.log
+- Rollback mechanism: scripts/rollback.sh
+- CI/CD status badge added to README.md
+
+Files: .github/workflows/ci.yml, .github/workflows/production-deploy.yml
