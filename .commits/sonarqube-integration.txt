@@ -1,21 +1,7 @@
-SonarQube integration commit
-=============================
-Tasks completed:
-- Configured SonarQube: sonar-project.properties
-  * Project Key: devops-cicd-security-platform
-  * Inclusions: *.yml, *.yaml, *.sh, *.rego
-- Integrated SonarQube scanning into CI/CD workflow (ci.yml sonarqube job)
-- Scan 1: YAML files using yamllint -> reports/sonarqube/yaml-analysis.log
-- Scan 2: Shell scripts using ShellCheck -> reports/sonarqube/shellcheck-report.txt
-- Scan 3: Application source code / policies
-- Report: Bugs (shell errors) -> shellcheck-report.txt
-- Report: Vulnerabilities (hardcoded secrets) -> security-findings.txt
-- Report: Code Smells (TODO/FIXME/HACK) -> code-smells.txt
-- Report: Duplicated Code -> duplication-report.txt
-- Quality Gate: Fails pipeline if shell errors > 5 or vulns > 10
-- Quality Gate report: reports/sonarqube/quality-gate.log
-- Summary report: reports/sonarqube/summary.txt
-- Optional SonarQube server scan if SONAR_TOKEN secret is set
-- All reports saved to: reports/sonarqube/
-
-File: sonar-project.properties, ci.yml (sonarqube job)
+SonarQube integration
+- sonar-project.properties configured
+- YAML, shell, rego file scanning
+- Reports: bugs, vulnerabilities, code smells, duplicates
+- Quality gate with pipeline fail on threshold breach
+- Reports saved to reports/sonarqube/
+File: sonar-project.properties
