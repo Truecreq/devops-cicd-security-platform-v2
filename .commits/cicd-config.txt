@@ -1,1 +1,8 @@
-CI/CD: GitHub Actions workflows for development and production pipelines with 5 stages: checkout, build, test, security validation, deployment
+CI/CD configuration
+- GitHub Actions: ci.yml + production-deploy.yml
+- Stages: checkout, build, test, security validation, deploy
+- Auto-trigger on push to development branch
+- Production pipeline with rollback on failure
+- Build/test/deploy logs saved to artifacts/
+- CI/CD status badge in README
+Files: .github/workflows/ci.yml, .github/workflows/production-deploy.yml
