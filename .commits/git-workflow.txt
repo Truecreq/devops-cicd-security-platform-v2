@@ -1,18 +1,8 @@
-Git workflow commit
-====================
-Tasks completed:
-- Initialized Git repository inside project directory
-- Created branches: development, staging, production
-- Pushed all branches to GitHub
-- Demonstrated stash: save WIP changes temporarily, then pop back
-- Demonstrated cherry-pick: applied specific commit onto production branch
-- Demonstrated rebase: rebased feature branch onto development
-- Demonstrated revert: undid a commit while preserving history
-- Demonstrated reset --soft: undid 2 commits keeping changes staged
-- Simulated merge conflict between development and staging branches
-- Resolved conflict using git checkout --ours
-- Restored deleted file using git restore
-- Displayed graphical commit history: git log --oneline --graph --all --decorate
-- Documented branching strategy in README.md
-
+Git workflow
+- Git init, branches: development, staging, production
+- 5 separate commits
+- stash, cherry-pick, rebase, revert, reset
+- Merge conflict simulation and resolution
+- File restore with git restore
+- Graphical commit history
 Script: scripts/git_workflow.sh
