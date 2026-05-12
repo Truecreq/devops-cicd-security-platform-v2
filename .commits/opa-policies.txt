@@ -1,1 +1,7 @@
-OPA: Conftest policies for deployment validation, security validation, container validation - prevents insecure deployments, restricts root execution, enforces image versioning
+OPA policies
+- policies/deployment.rego: no :latest tag, no empty image
+- policies/security.rego: runAsNonRoot, no UID 0
+- policies/container.rego: no privileged, no escalation
+- Conftest validation in CI pipeline
+- Reports saved to reports/opa/
+Files: policies/deployment.rego, policies/security.rego, policies/container.rego
