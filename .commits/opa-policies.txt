@@ -1,28 +1,7 @@
-OPA policies commit
-====================
-Tasks completed:
-- Installed Conftest in CI pipeline (v0.56.0)
-- Created policies/deployment.rego (package: deployment)
-  * Prevent insecure deployments: empty image not allowed
-  * Enforce image version tagging: :latest tag forbidden
-  * Image must have explicit version tag
-  * Replicas must be at least 1
-- Created policies/security.rego (package: security)
-  * Restrict root user: runAsNonRoot must be true (pod level)
-  * Restrict root user: runAsNonRoot must be true (container level)
-  * Pod must not run as UID 0
-  * Container must not run as UID 0
-- Created policies/container.rego (package: container)
-  * Prevent privileged container execution: privileged must be false
-  * privileged must be explicitly set to false
-  * No privilege escalation: allowPrivilegeEscalation must be false
-  * allowPrivilegeEscalation must be explicitly set to false
-- Validated deployments/deployment.yaml against all policies
-- Reports: reports/opa/deployment-report.json
-- Reports: reports/opa/security-report.json
-- Reports: reports/opa/container-report.json
-- Reports: reports/opa/full-validation.txt
-- Deployment blocked if any policy is violated (exit 1)
-- Validation script: scripts/opa_validate.sh
-
-Files: policies/deployment.rego, policies/security.rego, policies/container.rego
+OPA policies
+- policies/deployment.rego: no :latest, no empty image
+- policies/security.rego: runAsNonRoot, no UID 0
+- policies/container.rego: no privileged, no escalation
+- Validation via Conftest in CI pipeline
+- Reports saved to reports/opa/
+Files: policies/*.rego
