@@ -1,1 +1,9 @@
-Linux setup: Created users (developer, tester, devopsadmin), groups (developers, operations), permissions configured, config files backed up with timestamps
+Linux setup
+- Created project directory and subdirectories: configs, deployments, policies, reports, artifacts, backups
+- Created users: developer, tester, devopsadmin
+- Created groups: developers, operations
+- Assigned read/write to developers, full sudo to devopsadmin
+- Created config files: deployment.yaml, pipeline.yaml, security.conf
+- Backed up configs with timestamps
+- Background process demo and compressed archive
+Script: scripts/linux_setup.sh
