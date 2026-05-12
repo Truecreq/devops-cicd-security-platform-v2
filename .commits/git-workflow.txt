@@ -1,1 +1,8 @@
-Git workflow: Initialize Git, create branches (development/staging/production), demonstrate merge conflicts, stash, cherry-pick, rebase, revert, reset, file restore
+Git workflow
+- Git init, branches: development, staging, production
+- 5 separate commits per topic
+- Demonstrated: stash, cherry-pick, rebase, revert, reset
+- Merge conflict simulation and resolution
+- File restore with git restore
+- Graphical commit history: git log --oneline --graph --all --decorate
+Script: scripts/git_workflow.sh
