@@ -1,0 +1,9 @@
+# SonarQube reports are generated here during CI pipeline runs
+# Files generated:
+# - shellcheck-report.txt  (shell script bugs & code smells)
+# - yaml-analysis.log      (YAML file scan results)
+# - security-findings.txt  (vulnerability scan)
+# - code-smells.txt        (TODO/FIXME/HACK patterns)
+# - duplication-report.txt (duplicate code)
+# - quality-gate.log       (pass/fail verdict)
+# - summary.txt            (full analysis summary)

@@ -1,0 +1,1 @@
+OPA: Conftest policies for deployment validation, security validation, container validation - prevents insecure deployments, restricts root execution, enforces image versioning

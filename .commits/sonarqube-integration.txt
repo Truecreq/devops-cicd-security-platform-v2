@@ -1,0 +1,1 @@
+SonarQube: Integrated into CI pipeline, scans YAML files, shell scripts, Rego policies, generates reports for bugs/vulnerabilities/code-smells/duplicates, quality gate enforcement

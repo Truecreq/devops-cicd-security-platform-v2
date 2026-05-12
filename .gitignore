@@ -1,0 +1,38 @@
+# Artifacts and Build Outputs
+artifacts/
+dist/
+build/
+*.tar.gz
+*.zip
+
+# Reports and Logs
+reports/
+logs/
+*.log
+
+# SonarQube
+.sonarqube/
+.sonar/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.env
+venv/
+
+# Backups
+*.bak
+backups/
+
+# Credentials
+secrets.txt
+credentials.json
+.aws/credentials
+.kube/

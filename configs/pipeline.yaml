@@ -1,0 +1,25 @@
+# CI/CD Pipeline Stage Configuration
+pipeline:
+  name: devops-cicd-security-platform
+  stages:
+    - name: checkout
+      description: Source code checkout
+    - name: build
+      description: Compile and package application
+    - name: test
+      description: Run unit and integration tests
+    - name: security
+      description: OPA policy validation and SonarQube scanning
+    - name: deploy
+      description: Deploy to target environment
+  environments:
+    development:
+      trigger: push to development branch
+      auto_deploy: true
+    staging:
+      trigger: manual or merge from development
+      auto_deploy: false
+    production:
+      trigger: push to production branch
+      auto_deploy: true
+      rollback_on_failure: true

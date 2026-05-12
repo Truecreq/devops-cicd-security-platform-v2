@@ -1,0 +1,1 @@
+Linux setup: Created users (developer, tester, devopsadmin), groups (developers, operations), permissions configured, config files backed up with timestamps

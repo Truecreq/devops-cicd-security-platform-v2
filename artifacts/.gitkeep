@@ -1,0 +1,6 @@
+# Build and deployment artifacts are stored here during CI/CD pipeline runs
+# Files generated:
+# - build.log    (build stage output)
+# - test.log     (test stage output)
+# - deploy.log   (deployment stage output)
+# - dist/        (compiled application package)

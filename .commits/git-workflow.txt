@@ -1,0 +1,1 @@
+Git workflow: Initialize Git, create branches (development/staging/production), demonstrate merge conflicts, stash, cherry-pick, rebase, revert, reset, file restore

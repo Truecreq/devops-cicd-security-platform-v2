@@ -1,0 +1,1 @@
+CI/CD: GitHub Actions workflows for development and production pipelines with 5 stages: checkout, build, test, security validation, deployment
